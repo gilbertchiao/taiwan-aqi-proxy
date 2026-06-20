@@ -111,11 +111,18 @@ func (s *Store) Ping() error {
 // LatestBySiteID 取得指定測站編號的最新一筆資料 (依 publish_time 降冪)。
 // 查無資料時回傳 (nil, nil)。
 func (s *Store) LatestBySiteID(siteID string) (*model.AQIRecord, error) {
+	// 排序防呆:publish_time 以 TEXT 儲存,正常格式 (YYYY-MM-DD HH:MM:SS)
+	// 字典序即等於時間序。但若上游格式異常導致存入非標準字串,單純字串排序
+	// 可能讓畸形值被誤判為「最新」。因此先以 GLOB 判斷是否為標準格式,
+	// 讓格式正確者永遠優先,再依 publish_time、最後以 fetched_at 為次序鍵。
 	const query = `
 SELECT site_id, site_name, aqi, status, pm25, publish_time, COALESCE(raw_json, '')
 FROM aqi_records
 WHERE site_id = ?
-ORDER BY publish_time DESC
+ORDER BY
+    (publish_time GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]') DESC,
+    publish_time DESC,
+    fetched_at DESC
 LIMIT 1;`
 
 	row := s.db.QueryRow(query, siteID)

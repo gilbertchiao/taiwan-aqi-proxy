@@ -30,15 +30,15 @@ type updater interface {
 
 // Server 持有相依元件並提供 HTTP handler。
 type Server struct {
-	store store
-	updom updater
-	cfg   *config.Config
-	log   *slog.Logger
+	store   store
+	updater updater
+	cfg     *config.Config
+	log     *slog.Logger
 }
 
 // New 建立 Server。
 func New(s store, u updater, cfg *config.Config, log *slog.Logger) *Server {
-	return &Server{store: s, updom: u, cfg: cfg, log: log}
+	return &Server{store: s, updater: u, cfg: cfg, log: log}
 }
 
 // Handler 組裝路由並回傳含日誌中介層的 http.Handler。
@@ -114,7 +114,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 
-	if err := s.updom.RunUpdate(ctx); err != nil {
+	if err := s.updater.RunUpdate(ctx); err != nil {
 		// 僅在伺服器端記錄詳細錯誤,對外回傳靜態訊息,避免洩漏內部細節。
 		s.log.Error("手動觸發更新失敗", "error", err)
 		s.writeJSON(w, http.StatusBadGateway, model.APIResponse{

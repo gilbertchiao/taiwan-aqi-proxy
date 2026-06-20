@@ -58,7 +58,9 @@ func Load(envPath string) (*Config, error) {
 	if envPath == "" {
 		envPath = ".env"
 	}
-	loadDotEnv(envPath)
+	if err := loadDotEnv(envPath); err != nil {
+		return nil, fmt.Errorf("讀取 .env (%s) 失敗: %w", envPath, err)
+	}
 
 	cfg := &Config{
 		MOENVAPIKey:  getEnv("MOENV_API_KEY", ""),
@@ -113,11 +115,18 @@ func (c *Config) validate() error {
 //   - 以第一個 '=' 分隔鍵與值。
 //   - 去除值前後空白與成對的引號。
 //   - 僅在該環境變數尚未設定時才寫入 (真實環境變數優先)。
-func loadDotEnv(path string) {
+//
+// 回傳值:
+//   - .env 不存在屬正常情況 (例如正式環境直接用環境變數),回傳 nil。
+//   - 其他開檔錯誤 (如權限不足) 或讀取錯誤 (如單行過長 ErrTooLong) 會回傳 error,
+//     避免 .env 未完整載入卻默默改用預設值。
+func loadDotEnv(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		// .env 不存在屬正常情況 (例如正式環境直接用環境變數),不視為錯誤。
-		return
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 	defer file.Close()
 
@@ -141,6 +150,8 @@ func loadDotEnv(path string) {
 			_ = os.Setenv(key, value)
 		}
 	}
+	// 回報掃描過程中的錯誤 (例如行過長),避免被默默吞掉。
+	return scanner.Err()
 }
 
 // --- 取值輔助函式 ---

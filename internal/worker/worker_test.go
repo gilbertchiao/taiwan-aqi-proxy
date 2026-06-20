@@ -142,7 +142,7 @@ func TestFetchAndStore_NoTargetFound(t *testing.T) {
 	}
 }
 
-// --- RunUpdate:重試後成功 ---
+// --- RunUpdate:重試後仍持續失敗應回傳錯誤 ---
 
 func TestRunUpdate_RetryThenFail(t *testing.T) {
 	fetcher := &fakeFetcher{err: errors.New("模擬上游逾時")}

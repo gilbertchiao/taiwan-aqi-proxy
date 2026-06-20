@@ -77,6 +77,26 @@ func TestSave_KeepsHistoryAndUpserts(t *testing.T) {
 	}
 }
 
+// TestLatest_MalformedTimeNotPickedAsLatest 驗證:即使存在格式異常的
+// publish_time (字典序可能排在前面),查詢「最新」仍會回傳格式正確的資料。
+func TestLatest_MalformedTimeNotPickedAsLatest(t *testing.T) {
+	store := newTestStore(t)
+
+	valid := 45
+	bad := 99
+	_ = store.Save(model.AQIRecord{SiteID: "67", SiteName: "三重", AQI: &valid, PublishTime: "2026-06-20 11:00:00"})
+	// "unknown-time" 開頭為 'u',字典序大於數字,若無防呆會被誤判為最新。
+	_ = store.Save(model.AQIRecord{SiteID: "67", SiteName: "三重", AQI: &bad, PublishTime: "unknown-time"})
+
+	latest, err := store.LatestBySiteID("67")
+	if err != nil {
+		t.Fatalf("查詢失敗: %v", err)
+	}
+	if latest.AQI == nil || *latest.AQI != 45 {
+		t.Errorf("應回傳格式正確的最新資料 (aqi=45),實際 %+v", latest)
+	}
+}
+
 func TestLatest_NotFound(t *testing.T) {
 	store := newTestStore(t)
 	got, err := store.LatestBySiteID("9999")
