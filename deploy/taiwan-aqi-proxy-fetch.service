@@ -1,0 +1,35 @@
+# ==========================================================
+# systemd 服務單元:單次資料更新 (oneshot,供 timer 觸發)
+#
+# 使用情境:偏好由 systemd timer 管理排程而非程式內建排程時。
+# 此時主服務 .env 應設 ENABLE_SCHEDULER=false (API 只負責提供查詢)。
+#
+# 與 taiwan-aqi-proxy-fetch.timer 搭配使用。
+# ==========================================================
+[Unit]
+Description=Taiwan AQI Proxy - 單次資料更新 (fetch)
+Documentation=https://github.com/gilbertchiao/taiwan-aqi-proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=aqi
+Group=aqi
+WorkingDirectory=/opt/taiwan-aqi-proxy
+EnvironmentFile=/opt/taiwan-aqi-proxy/.env
+ExecStart=/opt/taiwan-aqi-proxy/bin/aqi-proxy fetch
+SyslogIdentifier=aqi-proxy-fetch
+
+# --- 安全強化 ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/taiwan-aqi-proxy/data /opt/taiwan-aqi-proxy/logs
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true

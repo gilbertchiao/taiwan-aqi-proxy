@@ -23,8 +23,8 @@ taiwan-aqi-proxy/
 │   ├── worker/           # 更新核心 (拉取/篩選/儲存/重試)
 │   ├── scheduler/        # 每小時定時觸發器
 │   └── server/           # HTTP handlers
-├── deploy/crontab.example
-├── docs/architecture.md  # 架構與設計決策說明
+├── deploy/               # 部署設定 (systemd unit / timer / crontab 範例)
+├── docs/                  # architecture.md (架構) / deployment-ubuntu.md (部署)
 ├── .env.example
 ├── Dockerfile
 ├── docker-compose.yml
@@ -58,12 +58,24 @@ make build                  # 產出 bin/aqi-proxy
 ./bin/aqi-proxy serve       # 啟動 API 服務 (含內建排程器)
 ```
 
-啟動後可直接測試:
+啟動後可直接測試 (以測站編號查詢,三重為 67):
 
 ```bash
-curl http://localhost:8000/api/v1/aqi/三重
-curl http://localhost:8000/api/v1/aqi/sanchong   # 英文別名亦可
+curl http://localhost:8000/api/v1/aqi/67
 ```
+
+### 方式三:Ubuntu systemd 服務
+
+在 Ubuntu 上以 systemd 部署為開機自啟、異常自動重啟的系統服務:
+
+```bash
+make build
+sudo cp bin/aqi-proxy /opt/taiwan-aqi-proxy/bin/
+sudo cp deploy/taiwan-aqi-proxy.service /etc/systemd/system/
+sudo systemctl enable --now taiwan-aqi-proxy
+```
+
+完整步驟 (建立使用者、權限、timer 模式、升級與移除) 見 [`docs/deployment-ubuntu.md`](docs/deployment-ubuntu.md)。
 
 ---
 
@@ -79,9 +91,11 @@ curl http://localhost:8000/api/v1/aqi/sanchong   # 英文別名亦可
 
 ## API 端點
 
-### `GET /api/v1/aqi/{sitename}`
+### `GET /api/v1/aqi/{siteid}`
 
-`{sitename}` 支援中文名稱 (`三重`) 或設定的英文別名 (`sanchong`)。
+`{siteid}` 為測站編號 (三重為 `67`)。測站對照表:<https://data.moenv.gov.tw/dataset/detail/AQX_P_07>
+
+範例:`GET /api/v1/aqi/67`
 
 成功回應 (`200`):
 
@@ -102,7 +116,7 @@ curl http://localhost:8000/api/v1/aqi/sanchong   # 英文別名亦可
 查無測站 (`404`):
 
 ```json
-{ "success": false, "message": "查無此測站資料: xxx" }
+{ "success": false, "message": "查無此測站資料: 9999" }
 ```
 
 > `is_stale`:當最新資料的發佈時間距今超過 `STALE_THRESHOLD_HOURS` (預設 2 小時) 時為 `true`,供終端判斷是否隱藏 AQI 顯示。
@@ -129,8 +143,7 @@ curl -X POST -H "X-Refresh-Token: <你的權杖>" http://localhost:8000/api/v1/r
 | `MOENV_API_KEY` | (必填) | 環境部開放資料平台 API Key |
 | `MOENV_DATASET` | `aqx_p_432` | 資料集代碼 (AQI) |
 | `MOENV_BASE_URL` | `https://data.moenv.gov.tw/api/v2` | API 基底網址 |
-| `SITE_ID` | `67` | 測站編號;可逗號分隔多站 (例 `67,1`) |
-| `SITE_ALIASES` | `sanchong=三重` | 英文別名對照 (`slug=中文名`,逗號分隔) |
+| `SITE_ID` | `67` | 測站編號;可逗號分隔多站 (例 `67,1`),亦為 API 查詢路徑參數 |
 | `ENABLE_SCHEDULER` | `true` | 是否啟用內建排程器 |
 | `SCHEDULE_MINUTE` | `10` | 每小時觸發的分鐘數 (0-59) |
 | `MAX_RETRIES` | `3` | 上游失敗最大重試次數 |

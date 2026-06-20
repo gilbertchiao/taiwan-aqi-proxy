@@ -31,21 +31,15 @@ func TestSaveAndLatest(t *testing.T) {
 		t.Fatalf("Save 失敗: %v", err)
 	}
 
-	got, err := store.LatestBySiteName("三重")
+	got, err := store.LatestBySiteID("67")
 	if err != nil {
-		t.Fatalf("LatestBySiteName 失敗: %v", err)
+		t.Fatalf("LatestBySiteID 失敗: %v", err)
 	}
 	if got == nil {
 		t.Fatal("應查到資料,卻為 nil")
 	}
-	if got.AQI == nil || *got.AQI != 45 || got.Status != "良好" {
+	if got.AQI == nil || *got.AQI != 45 || got.Status != "良好" || got.SiteName != "三重" {
 		t.Errorf("資料內容不符: %+v", got)
-	}
-
-	// 以測站編號查詢亦應成功。
-	byID, err := store.LatestBySiteID("67")
-	if err != nil || byID == nil {
-		t.Fatalf("LatestBySiteID 失敗: %v, rec=%v", err, byID)
 	}
 }
 
@@ -85,7 +79,7 @@ func TestSave_KeepsHistoryAndUpserts(t *testing.T) {
 
 func TestLatest_NotFound(t *testing.T) {
 	store := newTestStore(t)
-	got, err := store.LatestBySiteName("不存在")
+	got, err := store.LatestBySiteID("9999")
 	if err != nil {
 		t.Fatalf("非預期錯誤: %v", err)
 	}

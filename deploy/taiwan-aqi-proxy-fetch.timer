@@ -1,0 +1,24 @@
+# ==========================================================
+# systemd timer:每小時第 10 分觸發資料更新
+#
+# 安裝 (與 taiwan-aqi-proxy-fetch.service 一起):
+#   sudo cp deploy/taiwan-aqi-proxy-fetch.service /etc/systemd/system/
+#   sudo cp deploy/taiwan-aqi-proxy-fetch.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now taiwan-aqi-proxy-fetch.timer
+#
+# 檢視排程:systemctl list-timers taiwan-aqi-proxy-fetch.timer
+# ==========================================================
+[Unit]
+Description=每小時觸發 Taiwan AQI Proxy 資料更新
+Documentation=https://github.com/gilbertchiao/taiwan-aqi-proxy
+
+[Timer]
+# 每小時的第 10 分執行,確保撈到官方最新整點資料
+OnCalendar=*-*-* *:10:00
+# 開機後若錯過排程時間,補跑一次
+Persistent=true
+Unit=taiwan-aqi-proxy-fetch.service
+
+[Install]
+WantedBy=timers.target

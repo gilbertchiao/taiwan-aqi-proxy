@@ -20,7 +20,6 @@ import (
 // store 為伺服器所需的儲存層讀取介面。
 type store interface {
 	LatestBySiteID(siteID string) (*model.AQIRecord, error)
-	LatestBySiteName(siteName string) (*model.AQIRecord, error)
 	Ping() error
 }
 
@@ -46,35 +45,29 @@ func New(s store, u updater, cfg *config.Config, log *slog.Logger) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
-	mux.HandleFunc("GET /api/v1/aqi/{sitename}", s.handleAQI)
+	mux.HandleFunc("GET /api/v1/aqi/{siteid}", s.handleAQI)
 	mux.HandleFunc("POST /api/v1/refresh", s.handleRefresh)
 	return s.withLogging(mux)
 }
 
-// handleAQI 處理 GET /api/v1/aqi/{sitename}。
+// handleAQI 處理 GET /api/v1/aqi/{siteid}。
+// 以測站編號 (例如三重為 67) 查詢最新一筆資料。
 func (s *Server) handleAQI(w http.ResponseWriter, r *http.Request) {
-	siteName := r.PathValue("sitename")
-	resolved := s.resolveSiteName(siteName)
+	siteID := strings.TrimSpace(r.PathValue("siteid"))
 
-	// 先以中文名稱查詢;查無再嘗試以測站編號查詢 (容許直接帶 siteid)。
-	rec, err := s.store.LatestBySiteName(resolved)
+	rec, err := s.store.LatestBySiteID(siteID)
 	if err != nil {
-		s.log.Error("查詢資料發生錯誤", "sitename", siteName, "error", err)
+		s.log.Error("查詢資料發生錯誤", "siteid", siteID, "error", err)
 		s.writeJSON(w, http.StatusInternalServerError, model.APIResponse{
 			Success: false, Message: "內部錯誤,查詢資料失敗",
 		})
 		return
 	}
-	if rec == nil {
-		if byID, e := s.store.LatestBySiteID(resolved); e == nil && byID != nil {
-			rec = byID
-		}
-	}
 
 	if rec == nil {
 		s.writeJSON(w, http.StatusNotFound, model.APIResponse{
 			Success: false,
-			Message: "查無此測站資料: " + siteName,
+			Message: "查無此測站資料: " + siteID,
 		})
 		return
 	}
@@ -130,18 +123,6 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, model.APIResponse{Success: true, Message: "更新完成"})
-}
-
-// resolveSiteName 將路徑參數轉為實際的測站中文名稱。
-//
-// 規則:先以小寫比對英文別名表 (例如 sanchong -> 三重);
-// 若無對應,則視為已是中文名稱 (或測站編號) 直接回傳。
-func (s *Server) resolveSiteName(input string) string {
-	key := strings.ToLower(strings.TrimSpace(input))
-	if chinese, ok := s.cfg.AliasMap[key]; ok {
-		return chinese
-	}
-	return strings.TrimSpace(input)
 }
 
 // isStale 判斷資料是否過期 (距今超過設定門檻)。

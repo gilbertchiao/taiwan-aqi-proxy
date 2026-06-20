@@ -17,13 +17,9 @@ import (
 // --- 測試替身 ---
 
 type fakeStore struct {
-	byName map[string]*model.AQIRecord
-	byID   map[string]*model.AQIRecord
+	byID map[string]*model.AQIRecord
 }
 
-func (f *fakeStore) LatestBySiteName(name string) (*model.AQIRecord, error) {
-	return f.byName[name], nil
-}
 func (f *fakeStore) LatestBySiteID(id string) (*model.AQIRecord, error) {
 	return f.byID[id], nil
 }
@@ -39,15 +35,10 @@ func quietLogger() *slog.Logger {
 
 func testServer(rec *model.AQIRecord) http.Handler {
 	cfg := &config.Config{
-		AliasMap:       map[string]string{"sanchong": "三重"},
 		StaleThreshold: 2 * time.Hour,
 	}
-	fs := &fakeStore{
-		byName: map[string]*model.AQIRecord{},
-		byID:   map[string]*model.AQIRecord{},
-	}
+	fs := &fakeStore{byID: map[string]*model.AQIRecord{}}
 	if rec != nil {
-		fs.byName[rec.SiteName] = rec
 		fs.byID[rec.SiteID] = rec
 	}
 	return New(fs, fakeUpdater{}, cfg, quietLogger()).Handler()
@@ -64,11 +55,11 @@ func recentRecord() *model.AQIRecord {
 	}
 }
 
-// --- 測試:以中文名稱查詢 ---
+// --- 測試:以測站編號查詢 ---
 
-func TestHandleAQI_ByChineseName(t *testing.T) {
+func TestHandleAQI_BySiteID(t *testing.T) {
 	h := testServer(recentRecord())
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/aqi/三重", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/aqi/67", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -87,19 +78,6 @@ func TestHandleAQI_ByChineseName(t *testing.T) {
 	}
 }
 
-// --- 測試:以英文別名查詢 ---
-
-func TestHandleAQI_ByAlias(t *testing.T) {
-	h := testServer(recentRecord())
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/aqi/sanchong", nil)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("以別名查詢狀態碼應為 200,實際 %d", rec.Code)
-	}
-}
-
 // --- 測試:過期資料應標記 is_stale=true ---
 
 func TestHandleAQI_StaleData(t *testing.T) {
@@ -108,7 +86,7 @@ func TestHandleAQI_StaleData(t *testing.T) {
 	stale := &model.AQIRecord{SiteID: "67", SiteName: "三重", AQI: &aqi, PublishTime: old}
 
 	h := testServer(stale)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/aqi/三重", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/aqi/67", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -148,7 +126,7 @@ func TestHandleHealth(t *testing.T) {
 
 func TestHandleRefresh_TokenAuth(t *testing.T) {
 	cfg := &config.Config{RefreshToken: "secret123"}
-	fs := &fakeStore{byName: map[string]*model.AQIRecord{}, byID: map[string]*model.AQIRecord{}}
+	fs := &fakeStore{byID: map[string]*model.AQIRecord{}}
 	h := New(fs, fakeUpdater{}, cfg, quietLogger()).Handler()
 
 	// 錯誤權杖 -> 401

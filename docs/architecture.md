@@ -7,7 +7,7 @@
 | 項目 | 選擇 | 理由 |
 | --- | --- | --- |
 | 語言 | Go 1.25 | 編譯為單一靜態執行檔,部署只需丟一個 binary,無需安裝 runtime,最貼合「現場看板/邊緣裝置」的部署情境。 |
-| HTTP | 標準函式庫 `net/http` | Go 1.22 起 `ServeMux` 支援 `GET /api/v1/aqi/{sitename}` 路由樣式,無需引入 web 框架,維持輕量。 |
+| HTTP | 標準函式庫 `net/http` | Go 1.22 起 `ServeMux` 支援 `GET /api/v1/aqi/{siteid}` 路由樣式,無需引入 web 框架,維持輕量。 |
 | 儲存 | SQLite (`modernc.org/sqlite`) | 純 Go 實作、免 CGo,可保留「完全靜態執行檔」優勢;單檔資料庫符合「輕量、免架設」需求,並能保留歷史資料。 |
 | 排程 | 自製輕量排程器 | 只需「每小時某分鐘觸發」,自行實作數十行即可,避免額外相依;同時保留外部 Cron 選項。 |
 | 日誌 | 標準函式庫 `log/slog` + 自製每日輪替 | 結構化日誌;每日輪替、舊檔壓縮、保留 30 天。 |
@@ -48,7 +48,7 @@ internal/server      HTTP handlers (查詢、健康檢查、手動更新)
                 │              SQLite (data/aqi.db)               │
                 │                    ▲                            │
                 │                    │ 讀取最新一筆                 │
-   終端看板 ────┼──► server: GET /api/v1/aqi/{sitename}           │
+   終端看板 ────┼──► server: GET /api/v1/aqi/{siteid}             │
                 │            (計算 is_stale 後回傳 JSON)           │
                 └──────────────────────────────────────────────┘
 ```

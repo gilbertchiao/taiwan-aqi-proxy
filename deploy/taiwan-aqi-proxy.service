@@ -1,0 +1,52 @@
+# ==========================================================
+# systemd 服務單元:taiwan-aqi-proxy (serve 模式,內建排程)
+#
+# 安裝:
+#   sudo cp deploy/taiwan-aqi-proxy.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now taiwan-aqi-proxy
+#
+# 詳細步驟見 docs/deployment-ubuntu.md
+# ==========================================================
+[Unit]
+Description=Taiwan AQI Proxy (空氣品質指標中介代理服務)
+Documentation=https://github.com/gilbertchiao/taiwan-aqi-proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aqi
+Group=aqi
+WorkingDirectory=/opt/taiwan-aqi-proxy
+# 由 .env 載入所有設定 (請確保 ENABLE_SCHEDULER=true 以使用內建排程)
+EnvironmentFile=/opt/taiwan-aqi-proxy/.env
+ExecStart=/opt/taiwan-aqi-proxy/bin/aqi-proxy serve
+
+# 異常自動重啟
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+
+# 日誌交由 journald 收集 (程式本身亦會寫入 logs/ 目錄)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aqi-proxy
+
+# --- 安全強化 (least privilege) ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# 僅允許寫入資料庫與日誌目錄,其餘檔案系統唯讀
+ReadWritePaths=/opt/taiwan-aqi-proxy/data /opt/taiwan-aqi-proxy/logs
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+
+[Install]
+WantedBy=multi-user.target

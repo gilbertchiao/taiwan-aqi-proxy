@@ -22,8 +22,7 @@ type Config struct {
 	MOENVBaseURL string // API 基底網址 (MOENV_BASE_URL)
 
 	// === 目標測站 ===
-	SiteIDs  []string          // 測站編號清單 (SITE_ID,逗號分隔)
-	AliasMap map[string]string // 英文別名 -> 中文名 (SITE_ALIASES)
+	SiteIDs []string // 測站編號清單 (SITE_ID,逗號分隔)
 
 	// === 排程 ===
 	EnableScheduler bool // 是否啟用內建排程器 (ENABLE_SCHEDULER)
@@ -66,8 +65,7 @@ func Load(envPath string) (*Config, error) {
 		MOENVDataset: getEnv("MOENV_DATASET", "aqx_p_432"),
 		MOENVBaseURL: getEnv("MOENV_BASE_URL", "https://data.moenv.gov.tw/api/v2"),
 
-		SiteIDs:  parseList(getEnv("SITE_ID", "67")),
-		AliasMap: parseAliases(getEnv("SITE_ALIASES", "sanchong=三重")),
+		SiteIDs: parseList(getEnv("SITE_ID", "67")),
 
 		EnableScheduler: getBool("ENABLE_SCHEDULER", true),
 		ScheduleMinute:  getInt("SCHEDULE_MINUTE", 10),
@@ -187,24 +185,6 @@ func parseList(raw string) []string {
 	for _, part := range strings.Split(raw, ",") {
 		if p := strings.TrimSpace(part); p != "" {
 			result = append(result, p)
-		}
-	}
-	return result
-}
-
-// parseAliases 將 "slug=中文名,slug2=中文名2" 解析為 map (slug 一律轉小寫)。
-func parseAliases(raw string) map[string]string {
-	result := make(map[string]string)
-	for _, pair := range strings.Split(raw, ",") {
-		pair = strings.TrimSpace(pair)
-		slug, chinese, found := strings.Cut(pair, "=")
-		if !found {
-			continue
-		}
-		slug = strings.ToLower(strings.TrimSpace(slug))
-		chinese = strings.TrimSpace(chinese)
-		if slug != "" && chinese != "" {
-			result[slug] = chinese
 		}
 	}
 	return result

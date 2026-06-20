@@ -36,8 +36,7 @@ CREATE TABLE IF NOT EXISTS aqi_records (
     fetched_at    TEXT    NOT NULL,
     UNIQUE(site_id, publish_time)
 );
-CREATE INDEX IF NOT EXISTS idx_site_publish     ON aqi_records(site_id, publish_time DESC);
-CREATE INDEX IF NOT EXISTS idx_sitename_publish ON aqi_records(site_name, publish_time DESC);
+CREATE INDEX IF NOT EXISTS idx_site_publish ON aqi_records(site_id, publish_time DESC);
 `
 
 // Store 封裝資料庫連線與相關操作。
@@ -112,26 +111,14 @@ func (s *Store) Ping() error {
 // LatestBySiteID 取得指定測站編號的最新一筆資料 (依 publish_time 降冪)。
 // 查無資料時回傳 (nil, nil)。
 func (s *Store) LatestBySiteID(siteID string) (*model.AQIRecord, error) {
-	return s.queryLatest("site_id", siteID)
-}
-
-// LatestBySiteName 取得指定測站中文名稱的最新一筆資料。
-// 查無資料時回傳 (nil, nil)。
-func (s *Store) LatestBySiteName(siteName string) (*model.AQIRecord, error) {
-	return s.queryLatest("site_name", siteName)
-}
-
-// queryLatest 為 LatestBySiteID / LatestBySiteName 的共用實作。
-// column 僅限內部以白名單常數呼叫,不會造成 SQL injection。
-func (s *Store) queryLatest(column, value string) (*model.AQIRecord, error) {
-	query := fmt.Sprintf(`
+	const query = `
 SELECT site_id, site_name, aqi, status, pm25, publish_time, COALESCE(raw_json, '')
 FROM aqi_records
-WHERE %s = ?
+WHERE site_id = ?
 ORDER BY publish_time DESC
-LIMIT 1;`, column)
+LIMIT 1;`
 
-	row := s.db.QueryRow(query, value)
+	row := s.db.QueryRow(query, siteID)
 
 	var (
 		rec    model.AQIRecord
@@ -144,7 +131,7 @@ LIMIT 1;`, column)
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("查詢最新資料失敗 (%s=%s): %w", column, value, err)
+		return nil, fmt.Errorf("查詢最新資料失敗 (site_id=%s): %w", siteID, err)
 	}
 
 	if aqi.Valid {
