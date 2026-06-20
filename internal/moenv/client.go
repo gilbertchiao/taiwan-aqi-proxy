@@ -24,8 +24,12 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// apiResponse 對應 v2 API 的外層 JSON 結構。
+// apiResponse 對應 v2 API 的「物件包裹」JSON 結構。
 // records 內每筆為 欄位名 -> 字串值 的對應。
+//
+// 注意:環境部 v2 API (帶 api_key 並指定 format=JSON) 實測會直接回傳頂層為
+// 測站陣列的 JSON,而非本結構。為相容兩種格式,解析時優先嘗試裸陣列,
+// 失敗再退回此包裹結構,詳見 parseRecords。
 type apiResponse struct {
 	Total   string              `json:"total"`
 	Records []map[string]string `json:"records"`
@@ -82,12 +86,36 @@ func (c *Client) FetchStations(ctx context.Context) ([]map[string]string, error)
 		return nil, fmt.Errorf("環境部 API 回傳非 2xx 狀態 (%d): %s", resp.StatusCode, c.redact(preview))
 	}
 
-	var parsed apiResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
+	records, err := parseRecords(body)
+	if err != nil {
 		return nil, fmt.Errorf("解析 API JSON 失敗: %w", err)
 	}
 
-	return parsed.Records, nil
+	return records, nil
+}
+
+// parseRecords 將環境部 API 的回應內容解析為測站記錄陣列。
+//
+// 相容兩種格式:
+//  1. 裸陣列 (實測格式):[ {欄位...}, {欄位...} ]
+//  2. 物件包裹 (舊版/部分介面):{ "total": "...", "records": [ {欄位...} ] }
+//
+// 解析策略:先嘗試裸陣列;若內容並非 JSON 陣列 (例如為物件),再退回包裹結構。
+// 兩種皆失敗時回傳最後一個解析錯誤,方便排查實際回應格式。
+func parseRecords(body []byte) ([]map[string]string, error) {
+	// 格式一:頂層即為測站陣列。
+	var bare []map[string]string
+	if err := json.Unmarshal(body, &bare); err == nil {
+		return bare, nil
+	}
+
+	// 格式二:{ total, records } 包裹物件。
+	var wrapped apiResponse
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, err
+	}
+
+	return wrapped.Records, nil
 }
 
 // buildURL 組裝帶有 API 金鑰與查詢參數的完整請求網址。

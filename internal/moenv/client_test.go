@@ -34,7 +34,7 @@ func TestFetchStations_ErrorDoesNotLeakKey(t *testing.T) {
 	}
 }
 
-// TestFetchStations_ParsesRecords 驗證正常解析流程。
+// TestFetchStations_ParsesRecords 驗證「物件包裹」格式 (含 total/records) 的解析流程。
 func TestFetchStations_ParsesRecords(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -48,6 +48,28 @@ func TestFetchStations_ParsesRecords(t *testing.T) {
 		t.Fatalf("非預期錯誤: %v", err)
 	}
 	if len(records) != 1 || records[0]["sitename"] != "三重" {
+		t.Fatalf("解析結果不符: %+v", records)
+	}
+}
+
+// TestFetchStations_ParsesBareArray 驗證「裸陣列」格式的解析流程。
+//
+// 環境部 v2 API (帶 api_key 並指定 format=JSON) 實際回傳的是頂層即為
+// 測站陣列的 JSON,而非 {total, records} 包裹物件。此測試以真實格式為準,
+// 確保用戶端能正確解析,避免回到 "cannot unmarshal array" 的線上錯誤。
+func TestFetchStations_ParsesBareArray(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"siteid":"67","sitename":"三重","aqi":"45"},{"siteid":"1","sitename":"基隆","aqi":"50"}]`))
+	}))
+	defer srv.Close()
+
+	c := New("k", "dataset", srv.URL, 5*time.Second)
+	records, err := c.FetchStations(context.Background())
+	if err != nil {
+		t.Fatalf("非預期錯誤: %v", err)
+	}
+	if len(records) != 2 || records[0]["sitename"] != "三重" {
 		t.Fatalf("解析結果不符: %+v", records)
 	}
 }
