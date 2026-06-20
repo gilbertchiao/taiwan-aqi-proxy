@@ -30,10 +30,10 @@ jobs:
           - { goos: windows, goarch: amd64, ext: ".exe" }
     steps:
       - name: 取出原始碼
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 安裝 Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.26"
           cache: true
@@ -56,7 +56,7 @@ jobs:
           (cd "$outdir" && sha256sum "${binname}" > "${binname}.sha256")
 
       - name: 上傳建置產物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aqi-proxy-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 下載所有建置產物
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
