@@ -54,7 +54,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-### 方式二:本機執行 (需 Go 1.25+)
+### 方式二:本機執行 (需 Go 1.26+)
 
 ```bash
 cp .env.example .env        # 填入 MOENV_API_KEY
