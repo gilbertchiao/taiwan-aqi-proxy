@@ -5,6 +5,8 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -108,7 +110,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if r.Header.Get("X-Refresh-Token") != s.cfg.RefreshToken {
+	if !tokenEqual(r.Header.Get("X-Refresh-Token"), s.cfg.RefreshToken) {
 		s.writeJSON(w, http.StatusUnauthorized, model.APIResponse{
 			Success: false, Message: "未授權",
 		})
@@ -120,8 +122,10 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := s.updom.RunUpdate(ctx); err != nil {
+		// 僅在伺服器端記錄詳細錯誤,對外回傳靜態訊息,避免洩漏內部細節。
+		s.log.Error("手動觸發更新失敗", "error", err)
 		s.writeJSON(w, http.StatusBadGateway, model.APIResponse{
-			Success: false, Message: "更新失敗: " + err.Error(),
+			Success: false, Message: "更新失敗,請查看伺服器日誌",
 		})
 		return
 	}
@@ -186,6 +190,16 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(code int) {
 	r.status = code
 	r.ResponseWriter.WriteHeader(code)
+}
+
+// tokenEqual 以定時 (constant-time) 方式比對權杖,防止計時攻擊。
+//
+// 先將兩端各自雜湊為固定長度 (32 bytes) 再比對,如此即使長度不同,
+// 比對本身仍為固定長度、固定時間,不會洩漏長度資訊。
+func tokenEqual(provided, expected string) bool {
+	p := sha256.Sum256([]byte(provided))
+	e := sha256.Sum256([]byte(expected))
+	return subtle.ConstantTimeCompare(p[:], e[:]) == 1
 }
 
 // taipeiLocation 回傳 Asia/Taipei 時區;載入失敗時退回固定 +08:00。

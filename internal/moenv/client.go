@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -60,14 +61,16 @@ func (c *Client) FetchStations(ctx context.Context) ([]map[string]string, error)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("呼叫環境部 API 失敗: %w", err)
+		// 注意:net/http 的 *url.Error 會在錯誤訊息中夾帶完整請求網址,
+		// 而 api_key 位於查詢字串,故務必先 redact 再回傳/記錄,避免金鑰外洩到日誌。
+		return nil, fmt.Errorf("呼叫環境部 API 失敗: %s", c.redact(err.Error()))
 	}
 	defer resp.Body.Close()
 
 	// 限制讀取大小 (10MB),避免異常回應耗盡記憶體。
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
-		return nil, fmt.Errorf("讀取回應內容失敗: %w", err)
+		return nil, fmt.Errorf("讀取回應內容失敗: %s", c.redact(err.Error()))
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -76,7 +79,7 @@ func (c *Client) FetchStations(ctx context.Context) ([]map[string]string, error)
 		if len(preview) > 300 {
 			preview = preview[:300]
 		}
-		return nil, fmt.Errorf("環境部 API 回傳非 2xx 狀態 (%d): %s", resp.StatusCode, preview)
+		return nil, fmt.Errorf("環境部 API 回傳非 2xx 狀態 (%d): %s", resp.StatusCode, c.redact(preview))
 	}
 
 	var parsed apiResponse
@@ -101,4 +104,17 @@ func (c *Client) buildURL() (string, error) {
 	q.Set("limit", strconv.Itoa(1000)) // 全台測站約數十站,1000 足以一次取回
 	base.RawQuery = q.Encode()
 	return base.String(), nil
+}
+
+// redact 將字串中的 API 金鑰遮蔽,避免金鑰透過錯誤訊息或日誌外洩。
+// 同時處理 api_key 出現在 URL 查詢字串中的情況 (例如 *url.Error)。
+func (c *Client) redact(s string) string {
+	if c.apiKey != "" {
+		s = strings.ReplaceAll(s, c.apiKey, "***REDACTED***")
+		// 連同 URL 編碼後的形式一併遮蔽 (查詢字串通常為編碼後)。
+		if encoded := url.QueryEscape(c.apiKey); encoded != c.apiKey {
+			s = strings.ReplaceAll(s, encoded, "***REDACTED***")
+		}
+	}
+	return s
 }

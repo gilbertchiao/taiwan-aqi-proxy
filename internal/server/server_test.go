@@ -144,6 +144,44 @@ func TestHandleHealth(t *testing.T) {
 	}
 }
 
+// --- 測試:設定權杖後,正確/錯誤權杖的行為 ---
+
+func TestHandleRefresh_TokenAuth(t *testing.T) {
+	cfg := &config.Config{RefreshToken: "secret123"}
+	fs := &fakeStore{byName: map[string]*model.AQIRecord{}, byID: map[string]*model.AQIRecord{}}
+	h := New(fs, fakeUpdater{}, cfg, quietLogger()).Handler()
+
+	// 錯誤權杖 -> 401
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/refresh", nil)
+	req.Header.Set("X-Refresh-Token", "wrong")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("錯誤權杖應回 401,實際 %d", rec.Code)
+	}
+
+	// 正確權杖 -> 200
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/refresh", nil)
+	req.Header.Set("X-Refresh-Token", "secret123")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("正確權杖應回 200,實際 %d", rec.Code)
+	}
+}
+
+func TestTokenEqual(t *testing.T) {
+	if !tokenEqual("abc", "abc") {
+		t.Error("相同權杖應相等")
+	}
+	if tokenEqual("abc", "abcd") {
+		t.Error("不同長度權杖不應相等")
+	}
+	if tokenEqual("abc", "xyz") {
+		t.Error("不同內容權杖不應相等")
+	}
+}
+
 // --- 測試:未設定權杖時 refresh 端點回 404 ---
 
 func TestHandleRefresh_DisabledWhenNoToken(t *testing.T) {
