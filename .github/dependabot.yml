@@ -1,0 +1,61 @@
+# Dependabot 設定
+#
+# 目標:
+#   - 每月檢查相依套件更新一次 (降低頻率)。
+#   - 將「同一次檢查」產生的多個更新合併為單一 PR (groups),降低噪音。
+#   - commit 訊息沿用 Conventional Commits 風格 (chore(deps): ...)。
+#
+# 文件: https://docs.github.com/code-security/dependabot/dependabot-version-updates
+version: 2
+
+updates:
+  # === Go modules (go.mod / go.sum) ===
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "Asia/Taipei"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # 將所有 Go 相依的更新合併成單一 PR
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+
+  # === Dockerfile 基底映像 ===
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "Asia/Taipei"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # 將所有 Docker 映像的更新合併成單一 PR
+    groups:
+      docker:
+        patterns:
+          - "*"
+
+  # === GitHub Actions (待日後加入 CI workflow 後自動生效) ===
+  # 目前專案尚無 .github/workflows/,故先保留設定;有 workflow 後即會開始檢查。
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "Asia/Taipei"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
