@@ -4,7 +4,7 @@
 
 # --- 階段一:建置 ---
 # go.mod 要求 go 1.25,故 builder 使用對應版本。
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /src
 
@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 # --- 階段二:執行 ---
 # alpine 提供 shell 與 wget (供 HEALTHCHECK),體積仍小。
-FROM alpine:3.20
+FROM alpine:3.24
 
 # ca-certificates 供 HTTPS 連線環境部 API;時區資料已內嵌於執行檔。
 RUN apk add --no-cache ca-certificates wget && \
