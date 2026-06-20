@@ -1,0 +1,32 @@
+# ==========================================================
+# docker-compose:一鍵啟動 taiwan-aqi-proxy
+# 使用方式:
+#   1. cp .env.example .env 並填入 MOENV_API_KEY
+#   2. docker compose up -d --build
+# ==========================================================
+
+services:
+  aqi-proxy:
+    build: .
+    image: taiwan-aqi-proxy:latest
+    container_name: taiwan-aqi-proxy
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    # 由 .env 載入所有設定。
+    env_file:
+      - .env
+    # 以 named volume 持久化資料庫與日誌 (容器重建不遺失歷史資料)。
+    volumes:
+      - aqi-data:/app/data
+      - aqi-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  aqi-data:
+  aqi-logs:

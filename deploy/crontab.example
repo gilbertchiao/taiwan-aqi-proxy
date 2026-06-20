@@ -1,0 +1,18 @@
+# ==========================================================
+# 外部 Cron 範例 (適用 ENABLE_SCHEDULER=false 的部署方式)
+#
+# 安裝方式:
+#   crontab -e
+# 然後貼上下方設定 (請替換為實際的執行檔與專案路徑)。
+#
+# 說明:
+#   - 每小時的第 10 分執行單次更新,確保撈到官方最新整點資料。
+#   - 透過 cd 切換到專案目錄,讓程式讀得到 .env 與相對路徑的 data/、logs/。
+#   - 標準輸出與錯誤另外導向檔案備查 (程式本身亦有日誌輪替)。
+# ==========================================================
+
+# 分 時 日 月 週   指令
+10 * * * * cd /opt/taiwan-aqi-proxy && /opt/taiwan-aqi-proxy/bin/aqi-proxy fetch >> /opt/taiwan-aqi-proxy/logs/cron.log 2>&1
+
+# 若以 Docker 部署且關閉內建排程,可改用:
+# 10 * * * * docker exec taiwan-aqi-proxy /app/aqi-proxy fetch >> /var/log/aqi-cron.log 2>&1
