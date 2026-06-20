@@ -1,0 +1,27 @@
+# === 環境變數 (含機密,切勿入庫) ===
+.env
+
+# === 編譯產物 ===
+/bin/
+/aqi-proxy
+*.exe
+
+# === 執行期資料 ===
+/data/
+/logs/
+
+# === Working / Temporary 目錄 (個人慣例,不納入版控) ===
+work/
+temp/
+tmp/
+
+# === SQLite 衍生檔 ===
+*.db
+*.db-wal
+*.db-shm
+
+# === 作業系統 / 編輯器 ===
+.DS_Store
+.idea/
+.vscode/
+*.swp
