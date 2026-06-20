@@ -5,6 +5,7 @@
 package moenv
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -100,22 +101,44 @@ func (c *Client) FetchStations(ctx context.Context) ([]map[string]string, error)
 //  1. 裸陣列 (實測格式):[ {欄位...}, {欄位...} ]
 //  2. 物件包裹 (舊版/部分介面):{ "total": "...", "records": [ {欄位...} ] }
 //
-// 解析策略:先嘗試裸陣列;若內容並非 JSON 陣列 (例如為物件),再退回包裹結構。
-// 兩種皆失敗時回傳最後一個解析錯誤,方便排查實際回應格式。
+// 解析策略:先依頂層 JSON token ('[' 或 '{') 判斷實際格式,再走對應的解析路徑。
+// 如此可避免「裸陣列內某欄位型別不符」時被誤退回包裹結構,而把真正的解析錯誤
+// (例如 cannot unmarshal number into ...) 掩蓋成不相干的訊息。
 func parseRecords(body []byte) ([]map[string]string, error) {
-	// 格式一:頂層即為測站陣列。
-	var bare []map[string]string
-	if err := json.Unmarshal(body, &bare); err == nil {
+	switch firstJSONToken(body) {
+	case '[':
+		// 格式一:頂層即為測站陣列。
+		var bare []map[string]string
+		if err := json.Unmarshal(body, &bare); err != nil {
+			return nil, err
+		}
 		return bare, nil
+	case '{':
+		// 格式二:{ total, records } 包裹物件。
+		var wrapped apiResponse
+		if err := json.Unmarshal(body, &wrapped); err != nil {
+			return nil, err
+		}
+		return wrapped.Records, nil
+	default:
+		preview := string(body)
+		if len(preview) > 200 {
+			preview = preview[:200]
+		}
+		return nil, fmt.Errorf("非預期的 JSON 頂層格式 (既非陣列也非物件): %s", preview)
 	}
+}
 
-	// 格式二:{ total, records } 包裹物件。
-	var wrapped apiResponse
-	if err := json.Unmarshal(body, &wrapped); err != nil {
-		return nil, err
+// firstJSONToken 回傳忽略前導空白後的第一個有效位元組,用於判斷 JSON 頂層型別。
+// 內容為空或全為空白時回傳 0。
+func firstJSONToken(body []byte) byte {
+	trimmed := bytes.TrimLeftFunc(body, func(r rune) bool {
+		return r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+	if len(trimmed) == 0 {
+		return 0
 	}
-
-	return wrapped.Records, nil
+	return trimmed[0]
 }
 
 // buildURL 組裝帶有 API 金鑰與查詢參數的完整請求網址。

@@ -73,3 +73,24 @@ func TestFetchStations_ParsesBareArray(t *testing.T) {
 		t.Fatalf("解析結果不符: %+v", records)
 	}
 }
+
+// TestFetchStations_ArrayElementTypeErrorIsPreserved 驗證:當頂層確實是陣列、
+// 但某欄位型別不符 (例如數字而非字串) 時,回傳的錯誤應反映「真正的型別錯誤」,
+// 而非被誤退回包裹結構、掩蓋成 "unmarshal array into apiResponse" 之類的訊息。
+func TestFetchStations_ArrayElementTypeErrorIsPreserved(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// aqi 為數字 (非字串),裸陣列解析應失敗並保留此錯誤。
+		_, _ = w.Write([]byte(`[{"siteid":"67","aqi":45}]`))
+	}))
+	defer srv.Close()
+
+	c := New("k", "dataset", srv.URL, 5*time.Second)
+	_, err := c.FetchStations(context.Background())
+	if err == nil {
+		t.Fatal("應回傳型別不符的解析錯誤")
+	}
+	if strings.Contains(err.Error(), "apiResponse") {
+		t.Fatalf("錯誤訊息被掩蓋成包裹結構錯誤,應保留真正的型別錯誤: %v", err)
+	}
+}
