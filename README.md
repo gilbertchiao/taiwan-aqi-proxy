@@ -1,5 +1,9 @@
 # taiwan-aqi-proxy
 
+[![CI](https://github.com/gilbertchiao/taiwan-aqi-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/gilbertchiao/taiwan-aqi-proxy/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/gilbertchiao/taiwan-aqi-proxy?sort=semver)](https://github.com/gilbertchiao/taiwan-aqi-proxy/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 輕量的空氣品質指標 (AQI) 中介代理服務。定時向**環境部開放資料平台**拉取 AQI 資料、寫入本地 SQLite,並提供 RESTful API 供終端設備 (如現場電子看板) 查詢最新數據。
 
 - 避免終端設備頻繁打環境部 API 而觸發 Rate Limit / IP 封鎖。
@@ -184,3 +188,15 @@ make help     # 列出所有指令
 - **絕不清空舊資料**:寫入只做 UPSERT,上游異常時本地仍保有最後有效資料。
 - **資料過期標記**:超過門檻時數的資料會以 `is_stale=true` 標示,由終端決定是否顯示。
 - **保留歷史**:以 `(site_id, publish_time)` 為唯一鍵,不同整點各自保留為歷史紀錄。
+
+---
+
+## 預編譯執行檔
+
+每次發佈 (推送 `vX.Y.Z` tag) 會由 GitHub Actions 自動跨平台編譯,並附上各平台的單一執行檔與 SHA256 校驗碼,可於 [Releases](https://github.com/gilbertchiao/taiwan-aqi-proxy/releases) 頁面下載 (linux/darwin/windows,含 arm64)。
+
+---
+
+## 授權
+
+本專案採用 [MIT License](LICENSE)。
