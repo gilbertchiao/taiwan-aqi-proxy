@@ -1,0 +1,82 @@
+# 發佈 (Release):推送 vX.Y.Z 格式的 tag 時,跨平台編譯並建立 GitHub Release。
+#
+# 觸發方式:
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# 因採用純 Go 的 SQLite driver (CGO_ENABLED=0),可乾淨地交叉編譯,
+# 產出各平台的單一靜態執行檔。
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write # 建立 Release、上傳產物所需
+
+jobs:
+  build:
+    name: 編譯 ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 } # 適用 Raspberry Pi 等邊緣裝置
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: windows, goarch: amd64, ext: ".exe" }
+    steps:
+      - name: 取出原始碼
+        uses: actions/checkout@v4
+
+      - name: 安裝 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: 編譯
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          # tag 名稱透過 env 傳入,避免直接內插到 run 指令 (安全考量)
+          VERSION: ${{ github.ref_name }}
+          EXT: ${{ matrix.ext }}
+        run: |
+          outdir="dist"
+          mkdir -p "$outdir"
+          binname="aqi-proxy-${GOOS}-${GOARCH}${EXT}"
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+            -o "${outdir}/${binname}" ./cmd/aqi-proxy
+          # 產生 SHA256 校驗碼,方便下載者驗證完整性
+          (cd "$outdir" && sha256sum "${binname}" > "${binname}.sha256")
+
+      - name: 上傳建置產物
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqi-proxy-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          retention-days: 7
+
+  release:
+    name: 建立 Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下載所有建置產物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 建立 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true # 依 commit 自動產生發行說明
+          draft: false
+          prerelease: false

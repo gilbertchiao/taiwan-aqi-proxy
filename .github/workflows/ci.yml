@@ -1,0 +1,48 @@
+# 持續整合 (CI):每次 push 與 PR 都進行格式檢查、靜態分析、建置與測試。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同一分支若有新 push,取消尚在進行的舊流程,節省資源。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: 建置與測試
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出原始碼
+        uses: actions/checkout@v4
+
+      - name: 安裝 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: 檢查格式 (gofmt)
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "以下檔案未格式化,請執行 gofmt -w .:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: 靜態分析 (go vet)
+        run: go vet ./...
+
+      - name: 建置
+        run: go build ./...
+
+      - name: 測試
+        run: go test -race -count=1 ./...
