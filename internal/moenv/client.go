@@ -5,6 +5,7 @@
 package moenv
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,8 +25,12 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// apiResponse 對應 v2 API 的外層 JSON 結構。
+// apiResponse 對應 v2 API 的「物件包裹」JSON 結構。
 // records 內每筆為 欄位名 -> 字串值 的對應。
+//
+// 注意:環境部 v2 API (帶 api_key 並指定 format=JSON) 實測會直接回傳頂層為
+// 測站陣列的 JSON,而非本結構。為相容兩種格式,解析時優先嘗試裸陣列,
+// 失敗再退回此包裹結構,詳見 parseRecords。
 type apiResponse struct {
 	Total   string              `json:"total"`
 	Records []map[string]string `json:"records"`
@@ -82,12 +87,58 @@ func (c *Client) FetchStations(ctx context.Context) ([]map[string]string, error)
 		return nil, fmt.Errorf("環境部 API 回傳非 2xx 狀態 (%d): %s", resp.StatusCode, c.redact(preview))
 	}
 
-	var parsed apiResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
+	records, err := parseRecords(body)
+	if err != nil {
 		return nil, fmt.Errorf("解析 API JSON 失敗: %w", err)
 	}
 
-	return parsed.Records, nil
+	return records, nil
+}
+
+// parseRecords 將環境部 API 的回應內容解析為測站記錄陣列。
+//
+// 相容兩種格式:
+//  1. 裸陣列 (實測格式):[ {欄位...}, {欄位...} ]
+//  2. 物件包裹 (舊版/部分介面):{ "total": "...", "records": [ {欄位...} ] }
+//
+// 解析策略:先依頂層 JSON token ('[' 或 '{') 判斷實際格式,再走對應的解析路徑。
+// 如此可避免「裸陣列內某欄位型別不符」時被誤退回包裹結構,而把真正的解析錯誤
+// (例如 cannot unmarshal number into ...) 掩蓋成不相干的訊息。
+func parseRecords(body []byte) ([]map[string]string, error) {
+	switch firstJSONToken(body) {
+	case '[':
+		// 格式一:頂層即為測站陣列。
+		var bare []map[string]string
+		if err := json.Unmarshal(body, &bare); err != nil {
+			return nil, err
+		}
+		return bare, nil
+	case '{':
+		// 格式二:{ total, records } 包裹物件。
+		var wrapped apiResponse
+		if err := json.Unmarshal(body, &wrapped); err != nil {
+			return nil, err
+		}
+		return wrapped.Records, nil
+	default:
+		preview := string(body)
+		if len(preview) > 200 {
+			preview = preview[:200]
+		}
+		return nil, fmt.Errorf("非預期的 JSON 頂層格式 (既非陣列也非物件): %s", preview)
+	}
+}
+
+// firstJSONToken 回傳忽略前導空白後的第一個有效位元組,用於判斷 JSON 頂層型別。
+// 內容為空或全為空白時回傳 0。
+func firstJSONToken(body []byte) byte {
+	trimmed := bytes.TrimLeftFunc(body, func(r rune) bool {
+		return r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+	if len(trimmed) == 0 {
+		return 0
+	}
+	return trimmed[0]
 }
 
 // buildURL 組裝帶有 API 金鑰與查詢參數的完整請求網址。
