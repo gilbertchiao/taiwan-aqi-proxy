@@ -15,7 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
+
+	"taiwan-aqi-proxy/internal/timeutil"
 )
 
 // retentionDays 為壓縮日誌的保留天數。
@@ -69,7 +70,8 @@ func (d *dailyRotator) Write(p []byte) (int, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	today := time.Now().Format("2006-01-02")
+	// 以台灣時間決定日界線,確保日誌在台灣的午夜切換 (而非系統時區午夜)。
+	today := timeutil.Now().Format("2006-01-02")
 	if d.file == nil || d.curDate != today {
 		if err := d.rotate(today); err != nil {
 			return 0, err
@@ -150,7 +152,7 @@ func purgeOldLogs(dir string, days int) {
 	if err != nil {
 		return
 	}
-	cutoff := time.Now().AddDate(0, 0, -days)
+	cutoff := timeutil.Now().AddDate(0, 0, -days)
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".log.gz") {
 			continue

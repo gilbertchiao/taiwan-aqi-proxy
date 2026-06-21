@@ -8,6 +8,8 @@ import (
 	"context"
 	"log/slog"
 	"time"
+
+	"taiwan-aqi-proxy/internal/timeutil"
 )
 
 // Job 為排程要執行的任務函式。
@@ -30,7 +32,9 @@ func New(minute int, log *slog.Logger) *Scheduler {
 func (s *Scheduler) Start(ctx context.Context, job Job) {
 	s.log.Info("排程器啟動", "trigger_minute", s.minute)
 	for {
-		next := nextRun(time.Now(), s.minute)
+		// 以台灣時間計算下次觸發點,使「每小時第 N 分」對齊台灣時鐘,
+		// 不受系統時區影響 (容器未設 TZ 時 time.Now() 預設為 UTC)。
+		next := nextRun(timeutil.Now(), s.minute)
 		wait := time.Until(next)
 		s.log.Info("下次排程觸發時間", "at", next.Format("2006-01-02 15:04:05"), "wait", wait.String())
 

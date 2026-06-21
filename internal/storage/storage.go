@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"taiwan-aqi-proxy/internal/model"
+	"taiwan-aqi-proxy/internal/timeutil"
 
 	_ "modernc.org/sqlite"
 )
@@ -92,7 +93,9 @@ ON CONFLICT(site_id, publish_time) DO UPDATE SET
     raw_json   = excluded.raw_json,
     fetched_at = excluded.fetched_at;
 `
-	fetchedAt := time.Now().Format(time.RFC3339)
+	// 以台灣時間記錄抓取時刻,RFC3339 會帶 +08:00 時區後綴,
+	// 與資料庫中以台灣時間儲存的 publish_time 保持一致。
+	fetchedAt := timeutil.Now().Format(time.RFC3339)
 	_, err := s.db.Exec(query,
 		rec.SiteID, rec.SiteName, nullableInt(rec.AQI), nullableStr(rec.Status),
 		nullableFloat(rec.PM25), rec.PublishTime, rec.RawJSON, fetchedAt,

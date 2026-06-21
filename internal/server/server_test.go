@@ -12,6 +12,7 @@ import (
 
 	"taiwan-aqi-proxy/internal/config"
 	"taiwan-aqi-proxy/internal/model"
+	"taiwan-aqi-proxy/internal/timeutil"
 )
 
 // --- 測試替身 ---
@@ -48,7 +49,7 @@ func recentRecord() *model.AQIRecord {
 	aqi := 45
 	pm := 12.5
 	// 以「現在時間」為發佈時間,確保非過期。
-	now := time.Now().In(taipeiLocation()).Format("2006-01-02 15:04:05")
+	now := time.Now().In(timeutil.Location()).Format("2006-01-02 15:04:05")
 	return &model.AQIRecord{
 		SiteID: "67", SiteName: "三重", AQI: &aqi, Status: "良好",
 		PM25: &pm, PublishTime: now,
@@ -82,7 +83,7 @@ func TestHandleAQI_BySiteID(t *testing.T) {
 
 func TestHandleAQI_StaleData(t *testing.T) {
 	aqi := 45
-	old := time.Now().Add(-3 * time.Hour).In(taipeiLocation()).Format("2006-01-02 15:04:05")
+	old := time.Now().Add(-3 * time.Hour).In(timeutil.Location()).Format("2006-01-02 15:04:05")
 	stale := &model.AQIRecord{SiteID: "67", SiteName: "三重", AQI: &aqi, PublishTime: old}
 
 	h := testServer(stale)

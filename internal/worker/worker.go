@@ -13,6 +13,7 @@ import (
 
 	"taiwan-aqi-proxy/internal/config"
 	"taiwan-aqi-proxy/internal/model"
+	"taiwan-aqi-proxy/internal/timeutil"
 )
 
 // fetcher 為資料來源介面,方便測試時以假資料替換。
@@ -181,22 +182,13 @@ func normalizePublishTime(s string) string {
 	if s == "" {
 		return ""
 	}
-	loc := taipeiLocation()
+	loc := timeutil.Location()
 	for _, layout := range publishTimeLayouts {
 		if t, err := time.ParseInLocation(layout, s, loc); err == nil {
 			return t.Format("2006-01-02 15:04:05")
 		}
 	}
 	return s
-}
-
-// taipeiLocation 回傳 Asia/Taipei 時區;載入失敗時退回固定 +08:00。
-func taipeiLocation() *time.Location {
-	loc, err := time.LoadLocation("Asia/Taipei")
-	if err != nil {
-		return time.FixedZone("CST", 8*3600)
-	}
-	return loc
 }
 
 // valueOrNil 將 *int 轉為可記錄的值 (nil 時回傳字串 "nil")。

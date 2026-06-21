@@ -26,9 +26,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # alpine 提供 shell 與 wget (供 HEALTHCHECK),體積仍小。
 FROM alpine:3.24
 
-# ca-certificates 供 HTTPS 連線環境部 API;時區資料已內嵌於執行檔。
-RUN apk add --no-cache ca-certificates wget && \
+# ca-certificates 供 HTTPS 連線環境部 API;tzdata 讓系統層時區 (TZ) 生效。
+RUN apk add --no-cache ca-certificates wget tzdata && \
     addgroup -S app && adduser -S app -G app
+
+# 預設時區設為台灣;程式本身已明確以 Asia/Taipei 處理業務時間,
+# 此處再設 TZ 作為縱深防禦,使容器內 OS 層時間 (檔案 mtime 等) 亦對齊台灣。
+ENV TZ=Asia/Taipei
 
 WORKDIR /app
 
