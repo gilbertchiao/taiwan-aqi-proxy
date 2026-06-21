@@ -11,6 +11,9 @@
 #   - 標準輸出與錯誤另外導向檔案備查 (程式本身亦有日誌輪替)。
 # ==========================================================
 
+# 以台灣時區解讀下方排程時間 (Vixie cron 支援;程式本身亦已綁定 Asia/Taipei)。
+TZ=Asia/Taipei
+
 # 分 時 日 月 週   指令
 10 * * * * cd /opt/taiwan-aqi-proxy && /opt/taiwan-aqi-proxy/bin/aqi-proxy fetch >> /opt/taiwan-aqi-proxy/logs/cron.log 2>&1
 

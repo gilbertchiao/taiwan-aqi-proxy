@@ -15,6 +15,7 @@ import (
 
 	"taiwan-aqi-proxy/internal/config"
 	"taiwan-aqi-proxy/internal/model"
+	"taiwan-aqi-proxy/internal/timeutil"
 )
 
 // store 為伺服器所需的儲存層讀取介面。
@@ -129,7 +130,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 //
 // 無法解析發佈時間時,保守地視為過期,避免顯示來路不明的舊資料。
 func (s *Server) isStale(publishTime string) bool {
-	loc := taipeiLocation()
+	loc := timeutil.Location()
 	t, err := time.ParseInLocation("2006-01-02 15:04:05", publishTime, loc)
 	if err != nil {
 		return true
@@ -181,13 +182,4 @@ func tokenEqual(provided, expected string) bool {
 	p := sha256.Sum256([]byte(provided))
 	e := sha256.Sum256([]byte(expected))
 	return subtle.ConstantTimeCompare(p[:], e[:]) == 1
-}
-
-// taipeiLocation 回傳 Asia/Taipei 時區;載入失敗時退回固定 +08:00。
-func taipeiLocation() *time.Location {
-	loc, err := time.LoadLocation("Asia/Taipei")
-	if err != nil {
-		return time.FixedZone("CST", 8*3600)
-	}
-	return loc
 }

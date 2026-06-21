@@ -17,6 +17,8 @@ Type=oneshot
 User=aqi
 Group=aqi
 WorkingDirectory=/opt/taiwan-aqi-proxy
+# 預設時區台灣 (程式本身已明確處理 Asia/Taipei,此處再對齊 OS 層時間)
+Environment=TZ=Asia/Taipei
 EnvironmentFile=/opt/taiwan-aqi-proxy/.env
 ExecStart=/opt/taiwan-aqi-proxy/bin/aqi-proxy fetch
 SyslogIdentifier=aqi-proxy-fetch

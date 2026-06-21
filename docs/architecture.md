@@ -26,6 +26,7 @@ internal/moenv       環境部 API 用戶端 (HTTP 拉取 + JSON 解析)
 internal/worker      更新核心:拉取 → 篩選目標測站 → 轉換 → 儲存 + 重試
 internal/scheduler   每小時定時觸發器
 internal/server      HTTP handlers (查詢、健康檢查、手動更新)
+internal/timeutil    全專案統一時區處理 (一律 Asia/Taipei,不依賴系統 TZ)
 ```
 
 ## 3. 資料流
@@ -69,6 +70,10 @@ internal/server      HTTP handlers (查詢、健康檢查、手動更新)
 
 3. **資料不重複又保留歷史**
    - 以 `(site_id, publish_time)` 為唯一鍵:同一整點重複拉取會更新該筆 (UPSERT),不同整點則各自保留為歷史。
+
+4. **時區一律以台灣 (Asia/Taipei) 為準**
+   - 全專案時間集中由 `internal/timeutil` 處理:來源 `publishtime` 解析、`fetched_at` 抓取戳記、日誌每日輪替、排程觸發點皆明確綁定 `Asia/Taipei`,**不**依賴系統時區。
+   - 執行檔內嵌 `time/tzdata`,精簡映像 (alpine/scratch) 亦能正確載入時區;部署設定 (Dockerfile、compose、systemd、cron) 另設 `TZ=Asia/Taipei` 作為縱深防禦,使 OS 層時間一併對齊。
 
 ## 5. 兩種排程部署模式
 
