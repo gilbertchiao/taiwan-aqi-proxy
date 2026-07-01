@@ -74,7 +74,7 @@ jobs:
           merge-multiple: true
 
       - name: 建立 GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true # 依 commit 自動產生發行說明
