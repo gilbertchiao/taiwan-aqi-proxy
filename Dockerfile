@@ -3,7 +3,7 @@
 # ==========================================================
 
 # --- 階段一:建置 ---
-# go.mod 要求 go 1.26,故 builder 使用對應版本。
+# builder 版本需不低於 go.mod 要求的 go 版本 (目前為 1.26)。
 FROM golang:1.27-alpine AS builder
 
 WORKDIR /src
