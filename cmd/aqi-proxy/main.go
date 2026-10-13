@@ -37,7 +37,7 @@ import (
 )
 
 // version 於建置時可透過 -ldflags 覆寫。
-var version = "1.0.1"
+var version = "1.0.2"
 
 func main() {
 	command := "serve"
